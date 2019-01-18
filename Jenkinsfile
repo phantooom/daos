@@ -447,6 +447,10 @@ pipeline {
                         }
                     }
                     steps {
+                        sh (script: '''ls -l /opt
+                                       /opt/intel/bin/icc --version | true
+                                    ''',
+                            returnStatus: true)
                         sconsBuild clean: "_build.external${arch}", COMPILER: "icc"
                     }
                     post {
