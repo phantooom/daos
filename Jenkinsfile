@@ -443,12 +443,15 @@ pipeline {
                             dir 'utils/docker'
                             label 'docker_runner'
                             additionalBuildArgs '$BUILDARGS'
-                            args '-v /opt:/opt'
+                            args '-v /opt/intel:/opt/intel'
                         }
                     }
                     steps {
-                        sh (script: '''ls -l /opt
-                                       /opt/intel/bin/icc --version | true
+                        sh (script: '''ls -l /opt || true
+                                       ls -l /opt/intel || true
+                                       ls -l /opt/intel/bin || true
+                                       which icc || true
+                                       /opt/intel/bin/icc --version || true
                                     ''',
                             returnStatus: true)
                         sconsBuild clean: "_build.external${arch}", COMPILER: "icc"
