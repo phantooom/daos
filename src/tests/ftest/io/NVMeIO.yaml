@@ -1,0 +1,46 @@
+# change host names to your reserved nodes, the
+# required quantity is indicated by the placeholders
+
+hosts:
+ servers:
+  - boro-14
+  - boro-15
+ clients:
+ - boro-54
+timeout: 1800
+server:
+ server_group: daos_server
+pool:
+ createmode:
+  mode: 511
+ createset:
+  setname: daos_server
+ createsvc:
+  svcn: 1
+ior:
+ clientslots: 2
+ iteration: 1
+ iorflags: "-w -W -r -R -k"
+ stripecount: 1024
+ asyncio: 16    
+ scmsize:
+  - 6000000000      #6GB
+  - 1000000000      #1GB
+  - 1000000000      #1GB
+  - 1000000000      #1GB
+ nvmesize:
+  - 40000000000     #40GB
+  - 2000000000      #2GB
+  - 2000000000      #2GB
+  - 2000000000      #1GB
+ stripesize:
+  - 1048576         #1M
+  - 4096            #4K
+  - 2048            #2K
+  - 8               #8B
+ blocksize:
+  - 17179869184     #16G
+  - 1073741824      #1G
+  - 1073741824      #1G
+  - 10485760        #10M
+ objectclass: "LARGE"
