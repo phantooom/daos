@@ -126,8 +126,9 @@ if [ \"\${HOSTNAME%%%%.*}\" != \"${nodes[0]}\" ]; then
     sudo mkdir /var/run/daos_server
     sudo chown \${current_username} -R /var/run/daos_agent
     sudo chown \${current_username} -R /var/run/daos_server
-    sudo chmod u+w /var/run/daos_agent
-    sudo chmod u+w /var/run/daos_server
+    sudo chmod 0755 /var/run/daos_agent
+    sudo chmod 0755 /var/run/daos_server
+    ls -al /var/run/daos*
 
     sudo ed <<EOF /etc/fstab
 \\\$a
