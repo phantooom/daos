@@ -32,8 +32,8 @@ import (
 )
 
 const (
-	mgmtModuleID   int32 = C.DRPC_MODULE_MGMT_SERVER
-	methodKillRank int32 = C.DRPC_METHOD_MGMT_SERVER_KILL_RANK
+	mgmtModuleID   int32 = C.DRPC_MODULE_MGMT
+	methodKillRank int32 = C.DRPC_METHOD_MGMT_KILL_RANK
 )
 
 // MgmtModule is the management drpc module struct

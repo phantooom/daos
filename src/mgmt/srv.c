@@ -67,7 +67,7 @@ mgmt_drpc_handler(Drpc__Call *request, Drpc__Response **response)
 
 static struct dss_drpc_handler mgmt_drpc_handlers[] = {
 	{
-		.module_id = DRPC_MODULE_MGMT_SERVER,
+		.module_id = DRPC_MODULE_MGMT,
 		.handler = mgmt_drpc_handler
 	},
 	{
