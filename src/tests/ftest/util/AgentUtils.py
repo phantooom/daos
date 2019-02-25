@@ -28,6 +28,7 @@ import subprocess
 import json
 import signal
 import getpass
+import socket
 
 sessions = {}
 
@@ -92,7 +93,8 @@ def run_agent(basepath, server_list, client_list=None):
                           + user + ".")
 
     if client_list is None:
-        return
+	client_list = [socket.gethostname()]
+
 
     rc, node, agent_dir = node_setup_okay(client_list, NodeListType.CLIENT)
     if not rc:
