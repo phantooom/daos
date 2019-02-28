@@ -165,6 +165,12 @@ func main() {
 	go grpcServer.Serve(lis)
 	defer grpcServer.GracefulStop()
 
+	// Format the unformatted servers.
+	if err = formatIosrvs(&config, false); err != nil {
+		log.Errorf("Failed to format servers: %s", err)
+		return
+	}
+
 	// Init socket and start drpc server to communicate with DAOS I/O servers.
 	if err = drpcSetup(config.SocketDir); err != nil {
 		log.Errorf("Failed to set up dRPC: %s", err)
@@ -196,10 +202,7 @@ func main() {
 	srv.Env = os.Environ()
 
 	// Populate I/O server environment with values from config before starting.
-	if err = config.populateEnv(ioIdx, &srv.Env); err != nil {
-		log.Errorf("DAOS I/O env vars could not be populated: %s", err)
-		return
-	}
+	config.populateEnv(ioIdx, &srv.Env)
 
 	// I/O server should get a SIGKILL if this process dies.
 	srv.SysProcAttr = &syscall.SysProcAttr{
