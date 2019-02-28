@@ -105,7 +105,7 @@ func setupShell() *ishell.Shell {
 				return
 			}
 			c.Printf(
-				"Kill Rank returned: %s",
+				"Kill Rank returned: %s\n",
 				conns.KillRank(c.Args[0], uint32(rank)))
 		},
 	})

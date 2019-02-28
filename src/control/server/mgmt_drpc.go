@@ -27,7 +27,11 @@ package main
 // #include <daos/drpc_modules.h>
 import "C"
 import (
+	"fmt"
+
+	pb "github.com/daos-stack/daos/src/control/common/proto/mgmt"
 	"github.com/daos-stack/daos/src/control/drpc"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 )
 
@@ -47,7 +51,30 @@ func (m *MgmtModule) ID() int32 {
 	return mgmtModuleID
 }
 
+// MakeCall connects creates and sends message through the MgmtModule
+//func (m *MgmtModule) MakeCall(client *drpc.Client, method int32, body []byte) ([]byte, error) {
+
 // HandleCall is the handler for calls to the MgmtModule
 func (m *MgmtModule) HandleCall(client *drpc.Client, method int32, body []byte) ([]byte, error) {
 	return nil, errors.New("mgmt module handler is not implemented")
+}
+
+// callDrpcMethodWithMessage create a new drpc Call instance, open a
+// drpc connection, send a message with the protobuf message marshalled
+// in the body, and closes the connection. Returns unmarshalled response.
+func (c *controlService) callDrpcMethodWithMessage(
+	methodID int32, body proto.Message) (resp *pb.DaosResponse, err error) {
+
+	drpcResp, err := makeDrpcCall(c.drpc, mgmtModuleID, methodID, body)
+	if err != nil {
+		return
+	}
+
+	resp = &pb.DaosResponse{}
+	err = proto.Unmarshal(drpcResp.Body, resp)
+	if err != nil {
+		return nil, fmt.Errorf("invalid dRPC response body: %v", err)
+	}
+
+	return
 }

@@ -24,10 +24,12 @@
 package main
 
 import (
+	"fmt"
 	"os"
 	"path/filepath"
 
 	"github.com/daos-stack/daos/src/control/drpc"
+	"github.com/golang/protobuf/proto"
 	"github.com/pkg/errors"
 )
 
@@ -80,35 +82,60 @@ func drpcSetup(sockDir string) error {
 	return nil
 }
 
-// CallDrpcMethodWithMessage create a new drpc Call instance, opens a
-// drpc connection, sends a message with the protobuf message marshalled
-// in the body, and closes the connection. Returns drpc response.
-//func CallDrpcMethodWithMessage(
-//	moduleID int32, methodID int32, body proto.Message, c ClientConnection) (
-//	*Response, error) {
-//
-//	bodyBytes, err := proto.Marshal(body)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	drpcCall := &drpc.Call{
-//		Module: moduleID,
-//		Method: methodID,
-//		Body:   bodyBytes,
-//	}
-//
-//	// Forward the request to the I/O server via dRPC
-//	err = c.Connect()
-//	if err != nil {
-//		return nil, err
-//	}
-//	defer c.Close()
-//
-//	drpcResp, err := c.SendMsg(drpcCall)
-//	if err != nil {
-//		return nil, err
-//	}
-//
-//	return drpcResp, nil
-//}
+// checkDrpcResponse checks for some basic formatting errors
+func checkDrpcResponse(drpcResp *drpc.Response) error {
+	if drpcResp == nil {
+		return fmt.Errorf("dRPC returned no response")
+	}
+
+	if drpcResp.Status != drpc.Status_SUCCESS {
+		return fmt.Errorf("bad dRPC response status: %v",
+			drpcResp.Status.String())
+	}
+
+	return nil
+}
+
+// newDrpcCall creates a new drpc Call instance for specified module, with
+// the protobuf message marshalled in the body
+func newDrpcCall(module int32, method int32, bodyMessage proto.Message) (*drpc.Call, error) {
+	bodyBytes, err := proto.Marshal(bodyMessage)
+	if err != nil {
+		return nil, err
+	}
+
+	return &drpc.Call{
+		Module: module,
+		Method: method,
+		Body:   bodyBytes,
+	}, nil
+}
+
+// makeDrpcCall opens a drpc connection, sends a message with the
+// protobuf message marshalled in the body, and closes the connection.
+// drpc response is returned after basic checks.
+func makeDrpcCall(
+	client drpc.DomainSocketClient, module int32, method int32,
+	body proto.Message) (drpcResp *drpc.Response, err error) {
+
+	drpcCall, err := newDrpcCall(module, method, body)
+	if err != nil {
+		return
+	}
+
+	// Forward the request to the I/O server via dRPC
+	if err = client.Connect(); err != nil {
+		return
+	}
+	defer client.Close()
+
+	if drpcResp, err = client.SendMsg(drpcCall); err != nil {
+		return
+	}
+
+	if err = checkDrpcResponse(drpcResp); err != nil {
+		return
+	}
+
+	return
+}

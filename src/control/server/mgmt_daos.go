@@ -24,12 +24,20 @@
 package main
 
 import (
+	"fmt"
+
 	pb "github.com/daos-stack/daos/src/control/common/proto/mgmt"
-	"github.com/pkg/errors"
 	"golang.org/x/net/context"
 )
 
 func (c *controlService) KillRank(
 	ctx context.Context, rank *pb.DaosRank) (*pb.DaosResponse, error) {
-	return nil, errors.New("KillRank not yet implemented")
+
+	resp, err := c.callDrpcMethodWithMessage(methodKillRank, rank)
+	if err != nil {
+		return nil, err
+	}
+
+	fmt.Println("TODO: handle KillRank response")
+	return resp, nil
 }
