@@ -226,6 +226,75 @@ void
 daos_prop_free(daos_prop_t *prop);
 
 /**
+ * Allocate an empty DAOS Access Control List.
+ *
+ * \return	allocated daos_acl pointer, NULL if failed
+ */
+struct daos_acl *
+daos_acl_alloc(void);
+
+/**
+ * Free a DAOS Access Control List.
+ *
+ * \param[in]	acl	ACL pointer to be freed
+ */
+void
+daos_acl_free(struct daos_acl *acl);
+
+/**
+ * Get the first Access Control Entry in the Access Control List, for iterating
+ * over the list.
+ *
+ * \param[in]	acl	ACL to traverse
+ *
+ * \return	Pointer to the first ACE in the ACL, or NULL if none exists
+ */
+struct daos_ace *
+daos_acl_get_first_ace(struct daos_acl *acl);
+
+/**
+ * Get the next Access Control Entry in the Access Control List, for iterating
+ * over the list.
+ *
+ * \param[in]	acl		ACL to traverse
+ * \param[in]	current_ace	Current ACE, to determine the next one
+ *
+ * \return	Pointer to the next ACE in the ACL, or NULL if at the end
+ */
+struct daos_ace *
+daos_acl_get_next_ace(struct daos_acl *acl, struct daos_ace *current_ace);
+
+/**
+ * Search the Access Control List for an Access Control Entry for a specific
+ * principal.
+ *
+ * \param	acl		ACL to search
+ * \param	type		Principal type to search for
+ * \param	principal	Principal name, if type is USER or GROUP
+ *
+ * \return	Pointer to the matching ACE, or NULL if not found
+ */
+struct daos_ace *
+daos_acl_get_ace_for_principal(struct daos_acl *acl,
+		enum daos_acl_principal_type type, const char *principal);
+
+/**
+ * Insert an Access Control Entry in the appropriate location in the ACE
+ * list. The expected order is: Owner, Users, Assigned Group, Groups, Everyone.
+ *
+ * This requires us to reconstruct and reallocate the ACL structure. The old
+ * structure must be freed by the caller.
+ *
+ * \param	acl	Original ACL
+ * \param	new_ace	ACE to be added
+ *
+ * \return	A reallocated copy of acl with new_ace inserted in the correct
+ *			position in the list.
+ */
+struct daos_acl *
+daos_acl_realloc_with_new_ace(struct daos_acl *acl, struct daos_ace *new_ace);
+
+/**
  * Query information of storage targets within a DAOS pool.
  *
  * \param[in]	poh	Pool connection handle.
