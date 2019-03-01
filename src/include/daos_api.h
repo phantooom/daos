@@ -295,6 +295,33 @@ struct daos_acl *
 daos_acl_realloc_with_new_ace(struct daos_acl *acl, struct daos_ace *new_ace);
 
 /**
+ * Allocate a new Access Control Entry with an appropriately aligned principal
+ * name, if applicable.
+ *
+ * Only User and Group types use principal name.
+ *
+ * \param	type			Type of principal for the ACE
+ * \param	principal_name		Principal name will be added to the end
+ *					of the structure. For types that don't
+ *					use it, it is ignored. OK to pass NULL.
+ * \param	principal_name_len	Length of the principal_name string
+ *
+ * \return	New ACE structure with an appropriately packed principal name,
+ *			length, and type set.
+ */
+struct daos_ace *
+daos_ace_alloc(enum daos_acl_principal_type type, const char *principal_name,
+		size_t principal_name_len);
+
+/**
+ * Free an Access Control Entry allocated by daos_ace_alloc().
+ *
+ * \param ace	ACE to be freed
+ */
+void
+daos_ace_free(struct daos_ace *ace);
+
+/**
  * Query information of storage targets within a DAOS pool.
  *
  * \param[in]	poh	Pool connection handle.
