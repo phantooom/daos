@@ -322,6 +322,17 @@ void
 daos_ace_free(struct daos_ace *ace);
 
 /**
+ * Get the length in bytes of an Access Control Entry.
+ * The entries have variable length.
+ *
+ * \param	ace	ACE to get the size of
+ *
+ * \return	Size of ACE in bytes
+ */
+int
+daos_ace_get_size(struct daos_ace *ace);
+
+/**
  * Query information of storage targets within a DAOS pool.
  *
  * \param[in]	poh	Pool connection handle.

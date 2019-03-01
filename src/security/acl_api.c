@@ -50,7 +50,7 @@ daos_acl_free(struct daos_acl *acl)
 struct daos_acl *
 daos_acl_realloc_with_new_ace(struct daos_acl *acl, struct daos_ace *new_ace)
 {
-	return NULL;
+	return daos_acl_alloc();
 }
 
 struct daos_ace *
@@ -150,4 +150,14 @@ void
 daos_ace_free(struct daos_ace *ace)
 {
 	D_FREE(ace);
+}
+
+int
+daos_ace_get_size(struct daos_ace *ace)
+{
+	if (ace == NULL) {
+		return -DER_INVAL;
+	}
+
+	return sizeof(struct daos_ace) + ace->dae_principal_len;
 }

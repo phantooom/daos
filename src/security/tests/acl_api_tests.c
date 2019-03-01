@@ -46,12 +46,18 @@ test_acl_alloc_free(void **state)
 	daos_acl_free(acl);
 }
 
+static size_t
+get_aligned_string_size(const char *str)
+{
+	return D_ALIGNUP(strlen(str) + 1, 8);
+}
+
 static void
 test_ace_alloc_principal_user(void **state)
 {
-	const char				*expected_name = "user1@";
-	const enum daos_acl_principal_type	expected_type = DAOS_ACL_USER;
-	struct daos_ace				*ace;
+	const char			*expected_name = "user1@";
+	enum daos_acl_principal_type	expected_type = DAOS_ACL_USER;
+	struct daos_ace			*ace;
 
 	ace = daos_ace_alloc(expected_type, expected_name,
 			strlen(expected_name) + 1);
@@ -59,7 +65,7 @@ test_ace_alloc_principal_user(void **state)
 	assert_non_null(ace);
 	assert_int_equal(ace->dae_principal_type, expected_type);
 	assert_int_equal(ace->dae_principal_len,
-			D_ALIGNUP(strlen(expected_name) + 1, 8));
+			get_aligned_string_size(expected_name));
 	assert_string_equal(ace->dae_principal, expected_name);
 	assert_false(ace->dae_access_flags & DAOS_ACL_FLAG_GROUP);
 
@@ -90,9 +96,9 @@ test_ace_alloc_principal_user_bad_len(void **state)
 static void
 test_ace_alloc_principal_group(void **state)
 {
-	const char				*expected_name = "group1@";
-	const enum daos_acl_principal_type	expected_type = DAOS_ACL_GROUP;
-	struct daos_ace				*ace;
+	const char			*expected_name = "group1@";
+	enum daos_acl_principal_type	expected_type = DAOS_ACL_GROUP;
+	struct daos_ace			*ace;
 
 	ace = daos_ace_alloc(expected_type, expected_name,
 			strlen(expected_name) + 1);
@@ -100,7 +106,7 @@ test_ace_alloc_principal_group(void **state)
 	assert_non_null(ace);
 	assert_int_equal(ace->dae_principal_type, expected_type);
 	assert_int_equal(ace->dae_principal_len,
-			D_ALIGNUP(strlen(expected_name) + 1, 8));
+			get_aligned_string_size(expected_name));
 	assert_string_equal(ace->dae_principal, expected_name);
 	assert_true(ace->dae_access_flags & DAOS_ACL_FLAG_GROUP);
 
@@ -166,9 +172,8 @@ test_ace_alloc_principal_owner_ignores_len(void **state)
 static void
 test_ace_alloc_principal_owner_group(void **state)
 {
-	const enum daos_acl_principal_type	expected_type =
-							DAOS_ACL_OWNER_GROUP;
-	struct daos_ace				*ace;
+	enum daos_acl_principal_type	expected_type = DAOS_ACL_OWNER_GROUP;
+	struct daos_ace			*ace;
 
 	ace = daos_ace_alloc(expected_type, NULL, 0);
 
@@ -183,9 +188,8 @@ test_ace_alloc_principal_owner_group(void **state)
 static void
 test_ace_alloc_principal_everyone(void **state)
 {
-	const enum daos_acl_principal_type	expected_type =
-							DAOS_ACL_EVERYONE;
-	struct daos_ace				*ace;
+	enum daos_acl_principal_type	expected_type = DAOS_ACL_EVERYONE;
+	struct daos_ace			*ace;
 
 	ace = daos_ace_alloc(expected_type, NULL, 0);
 
@@ -207,20 +211,60 @@ test_ace_alloc_principal_invalid(void **state)
 	assert_null(ace);
 }
 
-//static void
-//test_acl_add_ace(void **state)
-//{
-//	struct daos_acl *acl;
-//	struct daos_acl *new_acl;
-//	struct daos_ace ace;
-//
-//	memset(&ace, 0, sizeof(ace));
-//
-//	acl = daos_acl_alloc();
-//	new_acl = daos_acl_realloc_with_new_ace(acl, );
-//
-//	daos_acl_free(acl);
-//}
+static void
+test_ace_get_size_null(void **state)
+{
+	assert_int_equal(daos_ace_get_size(NULL), -DER_INVAL);
+}
+
+static void
+test_ace_get_size_without_name(void **state)
+{
+	struct daos_ace	*ace;
+
+	ace = daos_ace_alloc(DAOS_ACL_EVERYONE, NULL, 0);
+
+	assert_int_equal(daos_ace_get_size(ace), sizeof(struct daos_ace));
+
+	daos_ace_free(ace);
+}
+
+static void
+test_ace_get_size_with_name(void **state)
+{
+	const char	*name = "group1@";
+	struct daos_ace	*ace;
+
+	ace = daos_ace_alloc(DAOS_ACL_GROUP, name, strlen(name) + 1);
+
+	assert_int_equal(daos_ace_get_size(ace), sizeof(struct daos_ace) +
+			get_aligned_string_size(name));
+
+	daos_ace_free(ace);
+}
+
+static void
+test_acl_add_ace_without_name(void **state)
+{
+	struct daos_acl *acl;
+	struct daos_acl *new_acl;
+	struct daos_ace *ace;
+
+	ace = daos_ace_alloc(DAOS_ACL_EVERYONE, NULL, 0);
+	ace->dae_access_types = DAOS_ACL_ACCESS_ALLOW;
+	ace->dae_allow_perms = DAOS_ACL_PERM_READ;
+
+	acl = daos_acl_alloc();
+	new_acl = daos_acl_realloc_with_new_ace(acl, ace);
+
+	assert_non_null(new_acl);
+	assert_ptr_not_equal(new_acl, acl);
+
+//	assert_int_equal(new_acl->dal_len)
+
+	daos_acl_free(acl);
+	daos_acl_free(new_acl);
+}
 
 int
 main(void)
@@ -238,6 +282,10 @@ main(void)
 		cmocka_unit_test(test_ace_alloc_principal_owner_group),
 		cmocka_unit_test(test_ace_alloc_principal_everyone),
 		cmocka_unit_test(test_ace_alloc_principal_invalid),
+		cmocka_unit_test(test_ace_get_size_null),
+		cmocka_unit_test(test_ace_get_size_without_name),
+		cmocka_unit_test(test_ace_get_size_with_name),
+		cmocka_unit_test(test_acl_add_ace_without_name),
 	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
