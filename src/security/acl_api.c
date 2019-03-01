@@ -41,16 +41,21 @@ daos_acl_alloc(void)
 void
 daos_acl_free(struct daos_acl *acl)
 {
-	/*
-	 * The ACL is one contiguous data blob - nothing special to do
-	 */
+	/* The ACL is one contiguous data blob - nothing special to do */
 	D_FREE(acl);
 }
 
 struct daos_acl *
 daos_acl_realloc_with_new_ace(struct daos_acl *acl, struct daos_ace *new_ace)
 {
-	return daos_acl_alloc();
+	struct daos_acl *new_acl;
+
+	new_acl = daos_acl_alloc();
+	if (new_acl == NULL) {
+		return NULL;
+	}
+
+	return new_acl;
 }
 
 struct daos_ace *
@@ -75,6 +80,10 @@ daos_acl_get_ace_for_principal(struct daos_acl *acl,
 static bool
 type_needs_name(enum daos_acl_principal_type type)
 {
+	/*
+	 * The only ACE types that require a name are User and Group. All others
+	 * are "special" ACEs that apply to an abstract category.
+	 */
 	if (type == DAOS_ACL_USER || type == DAOS_ACL_GROUP) {
 		return true;
 	}

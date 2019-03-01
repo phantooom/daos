@@ -47,9 +47,11 @@ test_acl_alloc_free(void **state)
 }
 
 static size_t
-get_aligned_string_size(const char *str)
+aligned_strlen(const char *str)
 {
-	return D_ALIGNUP(strlen(str) + 1, 8);
+	size_t len = strlen(str) + 1;
+
+	return D_ALIGNUP(len, 8);
 }
 
 static void
@@ -64,8 +66,7 @@ test_ace_alloc_principal_user(void **state)
 
 	assert_non_null(ace);
 	assert_int_equal(ace->dae_principal_type, expected_type);
-	assert_int_equal(ace->dae_principal_len,
-			get_aligned_string_size(expected_name));
+	assert_int_equal(ace->dae_principal_len, aligned_strlen(expected_name));
 	assert_string_equal(ace->dae_principal, expected_name);
 	assert_false(ace->dae_access_flags & DAOS_ACL_FLAG_GROUP);
 
@@ -96,7 +97,7 @@ test_ace_alloc_principal_user_bad_len(void **state)
 static void
 test_ace_alloc_principal_group(void **state)
 {
-	const char			*expected_name = "group1@";
+	const char			*expected_name = "group1234@";
 	enum daos_acl_principal_type	expected_type = DAOS_ACL_GROUP;
 	struct daos_ace			*ace;
 
@@ -105,8 +106,7 @@ test_ace_alloc_principal_group(void **state)
 
 	assert_non_null(ace);
 	assert_int_equal(ace->dae_principal_type, expected_type);
-	assert_int_equal(ace->dae_principal_len,
-			get_aligned_string_size(expected_name));
+	assert_int_equal(ace->dae_principal_len, aligned_strlen(expected_name));
 	assert_string_equal(ace->dae_principal, expected_name);
 	assert_true(ace->dae_access_flags & DAOS_ACL_FLAG_GROUP);
 
@@ -237,8 +237,9 @@ test_ace_get_size_with_name(void **state)
 
 	ace = daos_ace_alloc(DAOS_ACL_GROUP, name, strlen(name) + 1);
 
+	/* name string rounded up to 64 bits */
 	assert_int_equal(daos_ace_get_size(ace), sizeof(struct daos_ace) +
-			get_aligned_string_size(name));
+			aligned_strlen(name));
 
 	daos_ace_free(ace);
 }
@@ -260,7 +261,7 @@ test_acl_add_ace_without_name(void **state)
 	assert_non_null(new_acl);
 	assert_ptr_not_equal(new_acl, acl);
 
-//	assert_int_equal(new_acl->dal_len)
+	assert_int_equal(new_acl->dal_len, daos_ace_get_size(ace));
 
 	daos_acl_free(acl);
 	daos_acl_free(new_acl);
