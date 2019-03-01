@@ -51,6 +51,8 @@ func main() {
 	// Set default global logger for application.
 	log.NewDefaultLogger(log.Debug, "", os.Stderr)
 
+	log.Debugf("Starting daos_agent:")
+
 	flag.Parse()
 
 	// Setup signal handlers so we can block till we get SIGINT or SIGTERM
@@ -73,6 +75,8 @@ func main() {
 		log.Errorf("Unable to start socket server on %s: %v", sockPath, err)
 		return
 	}
+
+	log.Debugf("Listening on %s", sockPath)
 
 	// Anonymous goroutine to wait on the signals channel and tell the
 	// program to finish when it receives a signal. Since we only notify on
