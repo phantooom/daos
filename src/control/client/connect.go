@@ -55,9 +55,6 @@ type ConnFactory interface {
 
 // Connections is an interface providing functionality across multiple
 // connected clients.
-//
-// TODO: find a way to not have to repeat client API here, maybe List(typeEnum)
-//       Provision() Daos(typeEnum, args...)?
 type Connections interface {
 	// ConnectClients attempts to connect a list of addresses, returns
 	// list of connected clients and map of any errors.
