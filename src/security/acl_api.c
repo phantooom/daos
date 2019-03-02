@@ -28,12 +28,28 @@
 #define DAOS_ACL_VERSION	1
 
 struct daos_acl *
-daos_acl_alloc(void)
+daos_acl_alloc(struct daos_ace **aces, uint16_t num_aces)
 {
-	struct daos_acl *acl;
+	struct daos_acl	*acl;
+	size_t		ace_len = 0;
+	int		i;
+	uint8_t		*current_ace;
 
-	D_ALLOC_PTR(acl);
+	for (i = 0; i < num_aces; i++) {
+		ace_len += daos_ace_get_size(aces[i]);
+	}
+
+	D_ALLOC(acl, sizeof(struct daos_acl) + ace_len);
 	acl->dal_ver = DAOS_ACL_VERSION;
+	acl->dal_len = ace_len;
+
+	current_ace = acl->dal_ace;
+	for (i = 0; i < num_aces; i++) {
+		int ace_size = daos_ace_get_size(aces[i]);
+
+		memcpy(current_ace, aces[i], ace_size);
+		current_ace += ace_size;
+	}
 
 	return acl;
 }
@@ -46,14 +62,33 @@ daos_acl_free(struct daos_acl *acl)
 }
 
 struct daos_acl *
-daos_acl_realloc_with_new_ace(struct daos_acl *acl, struct daos_ace *new_ace)
+daos_acl_add_ace_realloc(struct daos_acl *acl, struct daos_ace *new_ace)
 {
-	struct daos_acl *new_acl;
+	struct daos_acl	*new_acl;
+	int		new_ace_len;
+	int		new_total_len;
 
-	new_acl = daos_acl_alloc();
+	if (acl == NULL) {
+		return NULL;
+	}
+
+	new_ace_len = daos_ace_get_size(new_ace);
+	if (new_ace_len < 0) {
+		/* ACE was invalid */
+		return NULL;
+	}
+
+	new_total_len = acl->dal_len + daos_ace_get_size(new_ace);
+
+	D_ALLOC(new_acl, sizeof(struct daos_acl) + new_total_len);
 	if (new_acl == NULL) {
 		return NULL;
 	}
+
+	new_acl->dal_ver = acl->dal_ver;
+	new_acl->dal_len = acl->dal_len + daos_ace_get_size(new_ace);
+	memcpy(new_acl->dal_ace, new_ace, new_ace_len);
+	memcpy(new_acl->dal_ace + new_ace_len, acl->dal_ace, acl->dal_len);
 
 	return new_acl;
 }

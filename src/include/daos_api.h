@@ -220,18 +220,21 @@ daos_prop_alloc(uint32_t entries_nr);
 /**
  * Free the DAOS properties.
  *
- * \param[int]	prop	properties to be freed.
+ * \param[in]	prop	properties to be freed.
  */
 void
 daos_prop_free(daos_prop_t *prop);
 
 /**
- * Allocate an empty DAOS Access Control List.
+ * Allocate an DAOS Access Control List.
+ *
+ * \param[in]	aces		Array of pointers to ACEs to be put in the ACL.
+ * \param[in]	num_aces	Number of ACEs in array
  *
  * \return	allocated daos_acl pointer, NULL if failed
  */
 struct daos_acl *
-daos_acl_alloc(void);
+daos_acl_alloc(struct daos_ace **aces, uint16_t num_aces);
 
 /**
  * Free a DAOS Access Control List.
@@ -268,9 +271,9 @@ daos_acl_get_next_ace(struct daos_acl *acl, struct daos_ace *current_ace);
  * Search the Access Control List for an Access Control Entry for a specific
  * principal.
  *
- * \param	acl		ACL to search
- * \param	type		Principal type to search for
- * \param	principal	Principal name, if type is USER or GROUP
+ * \param[in]	acl		ACL to search
+ * \param[in]	type		Principal type to search for
+ * \param[in]	principal	Principal name, if type is USER or GROUP
  *
  * \return	Pointer to the matching ACE, or NULL if not found
  */
@@ -285,14 +288,14 @@ daos_acl_get_ace_for_principal(struct daos_acl *acl,
  * This requires us to reconstruct and reallocate the ACL structure. The old
  * structure must be freed by the caller.
  *
- * \param	acl	Original ACL
- * \param	new_ace	ACE to be added
+ * \param[in]	acl	Original ACL
+ * \param[in]	new_ace	ACE to be added
  *
  * \return	A reallocated copy of acl with new_ace inserted in the correct
  *			position in the list.
  */
 struct daos_acl *
-daos_acl_realloc_with_new_ace(struct daos_acl *acl, struct daos_ace *new_ace);
+daos_acl_add_ace_realloc(struct daos_acl *acl, struct daos_ace *new_ace);
 
 /**
  * Allocate a new Access Control Entry with an appropriately aligned principal
@@ -300,11 +303,11 @@ daos_acl_realloc_with_new_ace(struct daos_acl *acl, struct daos_ace *new_ace);
  *
  * Only User and Group types use principal name.
  *
- * \param	type			Type of principal for the ACE
- * \param	principal_name		Principal name will be added to the end
+ * \param[in]	type			Type of principal for the ACE
+ * \param[in]	principal_name		Principal name will be added to the end
  *					of the structure. For types that don't
  *					use it, it is ignored. OK to pass NULL.
- * \param	principal_name_len	Length of the principal_name string
+ * \param[in]	principal_name_len	Length of the principal_name string
  *
  * \return	New ACE structure with an appropriately packed principal name,
  *			length, and type set.
@@ -316,7 +319,7 @@ daos_ace_alloc(enum daos_acl_principal_type type, const char *principal_name,
 /**
  * Free an Access Control Entry allocated by daos_ace_alloc().
  *
- * \param ace	ACE to be freed
+ * \param[in]	ace	ACE to be freed
  */
 void
 daos_ace_free(struct daos_ace *ace);
@@ -325,7 +328,7 @@ daos_ace_free(struct daos_ace *ace);
  * Get the length in bytes of an Access Control Entry.
  * The entries have variable length.
  *
- * \param	ace	ACE to get the size of
+ * \param[in]	ace	ACE to get the size of
  *
  * \return	Size of ACE in bytes
  */

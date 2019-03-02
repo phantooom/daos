@@ -22,7 +22,7 @@
  */
 
 /**
- * Unit tests for the ACL manipulation API
+ * Unit tests for the ACL property API
  */
 
 #include <stdarg.h>
@@ -33,18 +33,6 @@
 #include <daos_types.h>
 #include <daos_api.h>
 #include <gurt/common.h>
-
-static void
-test_acl_alloc_free(void **state)
-{
-	struct daos_acl *acl = daos_acl_alloc();
-
-	assert_non_null(acl);
-	assert_int_equal(acl->dal_ver, 1);
-	assert_int_equal(acl->dal_len, 0);
-
-	daos_acl_free(acl);
-}
 
 static size_t
 aligned_strlen(const char *str)
@@ -245,33 +233,211 @@ test_ace_get_size_with_name(void **state)
 }
 
 static void
-test_acl_add_ace_without_name(void **state)
+test_acl_alloc_empty(void **state)
+{
+	struct daos_acl *acl = daos_acl_alloc(NULL, 0);
+
+	assert_non_null(acl);
+	assert_int_equal(acl->dal_ver, 1);
+	assert_int_equal(acl->dal_len, 0);
+
+	daos_acl_free(acl);
+}
+
+static void
+test_acl_alloc_one_user(void **state)
+{
+	struct daos_acl *acl;
+	struct daos_ace *ace[1];
+	const char	*name = "user1@";
+
+	ace[0] = daos_ace_alloc(DAOS_ACL_USER, name, strlen(name) + 1);
+
+	acl = daos_acl_alloc(ace, 1);
+
+	assert_non_null(acl);
+	assert_int_equal(acl->dal_ver, 1);
+	assert_int_equal(acl->dal_len, daos_ace_get_size(ace[0]));
+	assert_memory_equal(acl->dal_ace, ace[0], daos_ace_get_size(ace[0]));
+
+	daos_ace_free(ace[0]);
+	daos_acl_free(acl);
+}
+
+static void
+test_acl_alloc_two_users(void **state)
+{
+	struct daos_acl *acl;
+	int		i;
+	int		ace_len = 0;
+	size_t		num_aces = 2;
+	struct daos_ace *ace[num_aces];
+	const char	*names[] ={
+			"user1@",
+			"superuser@",
+	};
+
+	for (i = 0; i < num_aces; i++) {
+		ace[i] = daos_ace_alloc(DAOS_ACL_USER, names[i],
+				strlen(names[i]) + 1);
+		ace_len += daos_ace_get_size(ace[i]);
+	}
+
+	acl = daos_acl_alloc(ace, num_aces);
+
+	assert_non_null(acl);
+	assert_int_equal(acl->dal_ver, 1);
+	assert_int_equal(acl->dal_len, ace_len);
+	/* expect the ACEs to be laid out in flat contiguous memory */
+	assert_memory_equal(acl->dal_ace, ace[0], daos_ace_get_size(ace[0]));
+	assert_memory_equal(acl->dal_ace + daos_ace_get_size(ace[0]),
+			ace[1], daos_ace_get_size(ace[1]));
+
+	/* cleanup */
+	for (i = 0; i < num_aces; i++) {
+		daos_ace_free(ace[i]);
+	}
+	daos_acl_free(acl);
+}
+
+static void
+test_acl_add_ace_with_null_acl(void **state)
+{
+	struct daos_ace *ace;
+
+	ace = daos_ace_alloc(DAOS_ACL_EVERYONE, NULL, 0);
+
+	assert_null(daos_acl_add_ace_realloc(NULL, ace));
+
+	daos_ace_free(ace);
+}
+
+static void
+test_acl_add_ace_with_null_ace(void **state)
+{
+	struct daos_acl *acl;
+
+	acl = daos_acl_alloc(NULL, 0);
+	assert_null(daos_acl_add_ace_realloc(acl, NULL));
+
+	daos_acl_free(acl);
+}
+
+static void
+expect_empty_acl_adds_ace_as_only_item(struct daos_ace *ace)
 {
 	struct daos_acl *acl;
 	struct daos_acl *new_acl;
+	size_t		ace_len;
+
+	ace_len = daos_ace_get_size(ace);
+
+	acl = daos_acl_alloc(NULL, 0);
+	new_acl = daos_acl_add_ace_realloc(acl, ace);
+
+	assert_non_null(new_acl);
+	assert_ptr_not_equal(new_acl, acl);
+
+	assert_int_equal(new_acl->dal_ver, acl->dal_ver);
+	assert_int_equal(new_acl->dal_len, ace_len);
+	assert_memory_equal(new_acl->dal_ace, ace, ace_len);
+
+	daos_acl_free(acl);
+	daos_acl_free(new_acl);
+}
+
+static void
+test_acl_add_ace_without_name(void **state)
+{
 	struct daos_ace *ace;
 
 	ace = daos_ace_alloc(DAOS_ACL_EVERYONE, NULL, 0);
 	ace->dae_access_types = DAOS_ACL_ACCESS_ALLOW;
 	ace->dae_allow_perms = DAOS_ACL_PERM_READ;
 
-	acl = daos_acl_alloc();
-	new_acl = daos_acl_realloc_with_new_ace(acl, ace);
+	expect_empty_acl_adds_ace_as_only_item(ace);
 
-	assert_non_null(new_acl);
-	assert_ptr_not_equal(new_acl, acl);
-
-	assert_int_equal(new_acl->dal_len, daos_ace_get_size(ace));
-
-	daos_acl_free(acl);
-	daos_acl_free(new_acl);
+	daos_ace_free(ace);
 }
+
+static void
+test_acl_add_ace_with_name(void **state)
+{
+	struct daos_ace	*ace;
+	const char	*name = "myuser@";
+
+	ace = daos_ace_alloc(DAOS_ACL_USER, name, strlen(name) + 1);
+	ace->dae_access_types = DAOS_ACL_ACCESS_ALLOW;
+	ace->dae_allow_perms = DAOS_ACL_PERM_READ;
+
+	expect_empty_acl_adds_ace_as_only_item(ace);
+
+	daos_ace_free(ace);
+}
+
+static void
+test_acl_add_ace_multiple_users(void **state)
+{
+	int		num_names = 2;
+	struct daos_ace	*aces[num_names];
+	struct daos_acl	*orig_acl, *tmp_acl, *result_acl;
+	size_t		total_ace_len = 0;
+	int		i;
+	const char	*names[] = {
+			"user1@",
+			"anotheruser@"
+	};
+
+	orig_acl = daos_acl_alloc(NULL, 0);
+	tmp_acl = orig_acl;
+
+	/* Add all the ACEs to the ACL */
+	for (i = 0; i < num_names; i++) {
+		aces[i] = daos_ace_alloc(DAOS_ACL_USER, names[i],
+				strlen(names[i]) + 1);
+		aces[i]->dae_access_types = DAOS_ACL_ACCESS_ALLOW;
+		aces[i]->dae_allow_perms = DAOS_ACL_PERM_READ;
+
+		total_ace_len += daos_ace_get_size(aces[i]);
+
+		result_acl = daos_acl_add_ace_realloc(tmp_acl, aces[i]);
+
+		/* preserve initial ACL for comparison */
+		if (tmp_acl != orig_acl) {
+			daos_acl_free(tmp_acl);
+		}
+		tmp_acl = result_acl;
+	}
+
+	assert_int_equal(result_acl->dal_ver, orig_acl->dal_ver);
+	assert_int_equal(result_acl->dal_len, total_ace_len);
+	/* Added to the top of the list */
+	assert_memory_equal(result_acl->dal_ace, aces[1],
+			daos_ace_get_size(aces[1]));
+	assert_memory_equal(result_acl->dal_ace + daos_ace_get_size(aces[1]),
+			aces[0], daos_ace_get_size(aces[0]));
+
+	/* cleanup */
+	daos_acl_free(orig_acl);
+	daos_acl_free(result_acl);
+	for (i = 0; i < num_names; i++) {
+		daos_ace_free(aces[i]);
+	}
+}
+
+/*
+ * TODO:
+ * - Correct ordering
+ * - Duplicate entry
+ * - Updated entry for existing user
+ * - Updated entry for existing group
+ * - Updated entry for special principals
+ */
 
 int
 main(void)
 {
 	const struct CMUnitTest tests[] = {
-		cmocka_unit_test(test_acl_alloc_free),
 		cmocka_unit_test(test_ace_alloc_principal_user),
 		cmocka_unit_test(test_ace_alloc_principal_user_no_name),
 		cmocka_unit_test(test_ace_alloc_principal_user_bad_len),
@@ -286,7 +452,14 @@ main(void)
 		cmocka_unit_test(test_ace_get_size_null),
 		cmocka_unit_test(test_ace_get_size_without_name),
 		cmocka_unit_test(test_ace_get_size_with_name),
+		cmocka_unit_test(test_acl_alloc_empty),
+		cmocka_unit_test(test_acl_alloc_one_user),
+		cmocka_unit_test(test_acl_alloc_two_users),
+		cmocka_unit_test(test_acl_add_ace_with_null_acl),
+		cmocka_unit_test(test_acl_add_ace_with_null_ace),
 		cmocka_unit_test(test_acl_add_ace_without_name),
+		cmocka_unit_test(test_acl_add_ace_with_name),
+		cmocka_unit_test(test_acl_add_ace_multiple_users),
 	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);
