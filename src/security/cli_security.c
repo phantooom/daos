@@ -179,7 +179,7 @@ sanity_check_credential_response(Drpc__Response *response)
 			response->body.len, response->body.data);
 	if (pb_cred == NULL) {
 		/* Malformed body */
-		D_ERROR("Unable to unmarshal credential: body.len: %d\n",
+		D_ERROR("Unable to unmarshal credential: body.len: %zu\n",
 			response->body.len);
 		return -DER_MISC;
 	}
