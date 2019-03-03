@@ -120,21 +120,21 @@ func makeDrpcCall(
 
 	drpcCall, err := newDrpcCall(module, method, body)
 	if err != nil {
-		return
+		return drpcResp, errors.Wrap(err, "build drpc call")
 	}
 
 	// Forward the request to the I/O server via dRPC
 	if err = client.Connect(); err != nil {
-		return
+		return drpcResp, errors.Wrap(err, "connect to client")
 	}
 	defer client.Close()
 
 	if drpcResp, err = client.SendMsg(drpcCall); err != nil {
-		return
+		return drpcResp, errors.Wrap(err, "send message")
 	}
 
 	if err = checkDrpcResponse(drpcResp); err != nil {
-		return
+		return drpcResp, errors.Wrap(err, "validate response")
 	}
 
 	return

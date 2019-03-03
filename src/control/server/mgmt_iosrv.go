@@ -24,8 +24,6 @@
 package main
 
 import (
-	"fmt"
-
 	pb "github.com/daos-stack/daos/src/control/common/proto/mgmt"
 	"golang.org/x/net/context"
 )
@@ -33,11 +31,6 @@ import (
 func (c *controlService) KillRank(
 	ctx context.Context, rank *pb.DaosRank) (*pb.DaosResponse, error) {
 
-	resp, err := c.callDrpcMethodWithMessage(methodKillRank, rank)
-	if err != nil {
-		return nil, err
-	}
-
-	fmt.Println("TODO: handle KillRank response")
-	return resp, nil
+	// TODO: handle KillRank response
+	return c.callDrpcMethodWithMessage(methodKillRank, rank)
 }

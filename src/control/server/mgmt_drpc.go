@@ -67,7 +67,8 @@ func (c *controlService) callDrpcMethodWithMessage(
 
 	drpcResp, err := makeDrpcCall(c.drpc, mgmtModuleID, methodID, body)
 	if err != nil {
-		return
+		fmt.Printf("%+v\n", err)
+		return nil, errors.WithStack(err)
 	}
 
 	resp = &pb.DaosResponse{}
