@@ -62,7 +62,8 @@ func DomainInfoFromUnixConn(sock *net.UnixConn) (*DomainInfo, error) {
 
 	ctx, err := unix.GetsockoptString(fd, syscall.SOL_SOCKET, syscall.SO_PEERSEC)
 	if err != nil {
-		return nil, err
+		log.Debugf("Unable to obtain peer context: %s\n", err)
+		ctx = ""
 	}
 	log.Debugf("Context: %s", ctx)
 	return InitDomainInfo(creds, ctx), nil
