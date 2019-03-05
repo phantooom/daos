@@ -27,29 +27,93 @@
 
 #define DAOS_ACL_VERSION	1
 
-struct daos_acl *
-daos_acl_alloc(struct daos_ace **aces, uint16_t num_aces)
+/*
+ * Comparison function for qsort. Compares by principal type. The enum is in
+ * the expected order of type priority.
+ */
+static int
+compare_aces(const void *p1, const void *p2)
 {
-	struct daos_acl	*acl;
-	size_t		ace_len = 0;
-	int		i;
-	uint8_t		*current_ace;
+	/* the inputs are in fact ptrs to ptrs */
+	struct daos_ace *ace1 = *((struct daos_ace **)p1);
+	struct daos_ace *ace2 = *((struct daos_ace **)p2);
 
-	for (i = 0; i < num_aces; i++) {
-		ace_len += daos_ace_get_size(aces[i]);
-	}
+	return (int)ace1->dae_principal_type - (int)ace2->dae_principal_type;
+}
 
-	D_ALLOC(acl, sizeof(struct daos_acl) + ace_len);
-	acl->dal_ver = DAOS_ACL_VERSION;
-	acl->dal_len = ace_len;
+static void
+sort_aces_by_principal_type(struct daos_ace *aces[], uint16_t num_aces)
+{
+	qsort(aces, num_aces, sizeof(struct daos_ace *), compare_aces);
+}
 
-	current_ace = acl->dal_ace;
+/*
+ * Flattens the array of ACE pointers into a single data blob.
+ * Assumes buffer has been allocated large enough to hold the flattened list.
+ */
+static void
+flatten_aces(uint8_t *buffer, struct daos_ace *aces[], uint16_t num_aces)
+{
+	int	i;
+	uint8_t	*current_ace;
+
+	current_ace = buffer;
 	for (i = 0; i < num_aces; i++) {
 		int ace_size = daos_ace_get_size(aces[i]);
 
 		memcpy(current_ace, aces[i], ace_size);
 		current_ace += ace_size;
 	}
+}
+
+/*
+ * Calculates the expected length of the flattened ACE data blob.
+ *
+ * Returns -DER_INVAL if one of the ACEs is NULL.
+ */
+static int
+get_flattened_ace_size(struct daos_ace *aces[], uint16_t num_aces)
+{
+	int	i;
+	int	total_size = 0;
+
+	for (i = 0; i < num_aces; i++) {
+		int len = daos_ace_get_size(aces[i]);
+
+		if (len < 0) {
+			return len;
+		}
+
+		total_size += len;
+	}
+
+	return total_size;
+}
+
+struct daos_acl *
+daos_acl_alloc(struct daos_ace *aces[], uint16_t num_aces)
+{
+	struct daos_acl	*acl;
+	int		ace_len;
+
+	ace_len = get_flattened_ace_size(aces, num_aces);
+	if (ace_len < 0) {
+		/* Bad ACE list */
+		return NULL;
+	}
+
+	sort_aces_by_principal_type(aces, num_aces);
+
+	D_ALLOC(acl, sizeof(struct daos_acl) + ace_len);
+	if (acl == NULL) {
+		/* Couldn't allocate */
+		return NULL;
+	}
+
+	acl->dal_ver = DAOS_ACL_VERSION;
+	acl->dal_len = ace_len;
+
+	flatten_aces(acl->dal_ace, aces, num_aces);
 
 	return acl;
 }
@@ -96,13 +160,37 @@ daos_acl_add_ace_realloc(struct daos_acl *acl, struct daos_ace *new_ace)
 struct daos_ace *
 daos_acl_get_first_ace(struct daos_acl *acl)
 {
-	return NULL;
+	if (acl == NULL || acl->dal_len == 0) {
+		return NULL;
+	}
+
+	return (struct daos_ace *)acl->dal_ace;
+}
+
+static uint8_t *
+get_acl_end_addr(struct daos_acl *acl)
+{
+	return acl->dal_ace + acl->dal_len;
 }
 
 struct daos_ace *
 daos_acl_get_next_ace(struct daos_acl *acl, struct daos_ace *current_ace)
 {
-	return NULL;
+	struct daos_ace	*next;
+	size_t		offset;
+
+	if (acl == NULL || current_ace == NULL) {
+		return NULL;
+	}
+
+	offset = sizeof (struct daos_ace) + current_ace->dae_principal_len;
+	if ((uint8_t *)current_ace + offset >= get_acl_end_addr(acl)) {
+		return NULL;
+	}
+
+	next = (struct daos_ace *)((uint8_t *)current_ace + offset);
+
+	return next;
 }
 
 struct daos_ace *

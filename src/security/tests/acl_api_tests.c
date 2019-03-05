@@ -301,6 +301,82 @@ test_acl_alloc_two_users(void **state)
 }
 
 static void
+test_acl_alloc_type_order(void **state)
+{
+	struct daos_acl			*acl;
+	int				i;
+	int				ace_len = 0;
+	size_t				num_aces = DAOS_ACL_EVERYONE + 1;
+	struct daos_ace			*ace[num_aces];
+	const char			*group_name = "mygroup@";
+	const char			*user_name = "me@";
+	struct daos_ace			*current_ace;
+	enum daos_acl_principal_type	expected_order[] = {
+			DAOS_ACL_OWNER,
+			DAOS_ACL_USER,
+			DAOS_ACL_OWNER_GROUP,
+			DAOS_ACL_GROUP,
+			DAOS_ACL_EVERYONE
+	};
+
+	/* Start in arbitrary shuffled order */
+	ace[0] = daos_ace_alloc(DAOS_ACL_EVERYONE, NULL, 0);
+	ace[1] = daos_ace_alloc(DAOS_ACL_OWNER_GROUP, NULL, 0);
+	ace[2] = daos_ace_alloc(DAOS_ACL_USER, user_name,
+			strlen(user_name + 1));
+	ace[3] = daos_ace_alloc(DAOS_ACL_OWNER, NULL, 0);
+	ace[4] = daos_ace_alloc(DAOS_ACL_GROUP, group_name,
+			strlen(group_name + 1));
+
+	for (i = 0; i < num_aces; i++) {
+		ace_len += daos_ace_get_size(ace[i]);
+	}
+
+	acl = daos_acl_alloc(ace, num_aces);
+
+	assert_non_null(acl);
+	assert_int_equal(acl->dal_ver, 1);
+	assert_int_equal(acl->dal_len, ace_len);
+
+	/* expected order: Owner, User, Owner Group, Group, Everyone */
+	current_ace = (struct daos_ace *)acl->dal_ace;
+	for (i = 0; i < num_aces; i++) {
+		uint32_t principal_len = current_ace->dae_principal_len;
+
+		assert_int_equal(current_ace->dae_principal_type,
+				expected_order[i]);
+
+		current_ace = (struct daos_ace *)((uint8_t *)current_ace +
+				sizeof(struct daos_ace) + principal_len);
+	}
+
+	/* cleanup */
+	for (i = 0; i < num_aces; i++) {
+		daos_ace_free(ace[i]);
+	}
+	daos_acl_free(acl);
+}
+
+static void
+test_acl_alloc_null_ace(void **state)
+{
+	struct daos_acl *acl;
+	size_t		num_aces = 2;
+	struct daos_ace *ace[num_aces];
+
+	ace[0] = daos_ace_alloc(DAOS_ACL_OWNER, NULL, 0);
+	ace[1] = NULL;
+
+	acl = daos_acl_alloc(ace, num_aces);
+
+	/* NULL entry is invalid input, don't do anything with it */
+	assert_null(acl);
+
+	/* cleanup */
+	daos_ace_free(ace[0]);
+}
+
+static void
 test_acl_add_ace_with_null_acl(void **state)
 {
 	struct daos_ace *ace;
@@ -434,6 +510,141 @@ test_acl_add_ace_multiple_users(void **state)
  * - Updated entry for special principals
  */
 
+static void
+test_acl_get_first_ace_null_acl(void **state)
+{
+	assert_null(daos_acl_get_first_ace(NULL));
+}
+
+static void
+test_acl_get_first_ace_empty_list(void **state)
+{
+	struct daos_acl *acl = daos_acl_alloc(NULL, 0);
+
+	assert_null(daos_acl_get_first_ace(acl));
+
+	daos_acl_free(acl);
+}
+
+static void
+test_acl_get_first_ace_multiple(void **state)
+{
+	struct daos_acl *acl;
+	struct daos_ace *result;
+	int		i;
+	size_t		num_aces = 2;
+	struct daos_ace *ace[num_aces];
+	const char	*names[] ={
+			"user1@",
+			"superuser@",
+	};
+
+	for (i = 0; i < num_aces; i++) {
+		ace[i] = daos_ace_alloc(DAOS_ACL_USER, names[i],
+				strlen(names[i]) + 1);
+	}
+
+	acl = daos_acl_alloc(ace, num_aces);
+
+	result = daos_acl_get_first_ace(acl);
+
+	assert_non_null(result);
+	assert_ptr_equal(result, acl->dal_ace);
+	assert_memory_equal(result, ace[0], daos_ace_get_size(ace[0]));
+
+	/* cleanup */
+	for (i = 0; i < num_aces; i++) {
+		daos_ace_free(ace[i]);
+	}
+	daos_acl_free(acl);
+}
+
+static void
+test_acl_get_next_ace_null_acl(void **state)
+{
+	struct daos_ace *ace = daos_ace_alloc(DAOS_ACL_EVERYONE, NULL, 0);
+
+	assert_null(daos_acl_get_next_ace(NULL, ace));
+
+	daos_ace_free(ace);
+}
+
+static void
+test_acl_get_next_ace_null_ace(void **state)
+{
+	struct daos_acl *acl = daos_acl_alloc(NULL, 0);
+
+	assert_null(daos_acl_get_next_ace(acl, NULL));
+
+	daos_acl_free(acl);
+}
+
+static void
+test_acl_get_next_ace_success(void **state)
+{
+	struct daos_acl *acl;
+	struct daos_ace *result;
+	int		i;
+	size_t		num_aces = 2;
+	struct daos_ace *ace[num_aces];
+	const char	*names[] ={
+			"user1@",
+			"superuser@",
+	};
+
+	for (i = 0; i < num_aces; i++) {
+		ace[i] = daos_ace_alloc(DAOS_ACL_USER, names[i],
+				strlen(names[i]) + 1);
+	}
+
+	acl = daos_acl_alloc(ace, num_aces);
+
+	result = daos_acl_get_next_ace(acl, (struct daos_ace *)acl->dal_ace);
+
+	assert_non_null(result);
+	assert_ptr_equal(result, acl->dal_ace + daos_ace_get_size(ace[0]));
+	assert_memory_equal(result, ace[1], daos_ace_get_size(ace[1]));
+
+	/* cleanup */
+	for (i = 0; i < num_aces; i++) {
+		daos_ace_free(ace[i]);
+	}
+	daos_acl_free(acl);
+}
+
+static void
+test_acl_get_next_ace_last_item(void **state)
+{
+	struct daos_acl *acl;
+	struct daos_ace *result;
+	struct daos_ace *last;
+	int		i;
+	size_t		num_aces = 2;
+	struct daos_ace *ace[num_aces];
+	const char	*names[] ={
+			"user1@",
+			"superuser@",
+	};
+
+	for (i = 0; i < num_aces; i++) {
+		ace[i] = daos_ace_alloc(DAOS_ACL_USER, names[i],
+				strlen(names[i]) + 1);
+	}
+
+	acl = daos_acl_alloc(ace, num_aces);
+	last = (struct daos_ace *)(acl->dal_ace + daos_ace_get_size(ace[0]));
+
+	result = daos_acl_get_next_ace(acl, last);
+
+	assert_null(result);
+
+	/* cleanup */
+	for (i = 0; i < num_aces; i++) {
+		daos_ace_free(ace[i]);
+	}
+	daos_acl_free(acl);
+}
+
 int
 main(void)
 {
@@ -455,11 +666,21 @@ main(void)
 		cmocka_unit_test(test_acl_alloc_empty),
 		cmocka_unit_test(test_acl_alloc_one_user),
 		cmocka_unit_test(test_acl_alloc_two_users),
+		cmocka_unit_test(test_acl_alloc_type_order),
+		cmocka_unit_test(test_acl_alloc_null_ace),
 		cmocka_unit_test(test_acl_add_ace_with_null_acl),
 		cmocka_unit_test(test_acl_add_ace_with_null_ace),
 		cmocka_unit_test(test_acl_add_ace_without_name),
 		cmocka_unit_test(test_acl_add_ace_with_name),
 		cmocka_unit_test(test_acl_add_ace_multiple_users),
+		/* TODO - finish up the addition tests */
+		cmocka_unit_test(test_acl_get_first_ace_null_acl),
+		cmocka_unit_test(test_acl_get_first_ace_empty_list),
+		cmocka_unit_test(test_acl_get_first_ace_multiple),
+		cmocka_unit_test(test_acl_get_next_ace_null_acl),
+		cmocka_unit_test(test_acl_get_next_ace_null_ace),
+		cmocka_unit_test(test_acl_get_next_ace_success),
+		cmocka_unit_test(test_acl_get_next_ace_last_item)
 	};
 
 	return cmocka_run_group_tests(tests, NULL, NULL);

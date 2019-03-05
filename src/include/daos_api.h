@@ -234,7 +234,7 @@ daos_prop_free(daos_prop_t *prop);
  * \return	allocated daos_acl pointer, NULL if failed
  */
 struct daos_acl *
-daos_acl_alloc(struct daos_ace **aces, uint16_t num_aces);
+daos_acl_alloc(struct daos_ace *aces[], uint16_t num_aces);
 
 /**
  * Free a DAOS Access Control List.
