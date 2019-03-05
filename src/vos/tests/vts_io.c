@@ -462,7 +462,7 @@ io_test_obj_update(struct io_test_args *arg, int epoch, daos_key_t *dkey,
 	}
 
 	rc = vos_update_begin(arg->ctx.tc_co_hdl, arg->oid, epoch, dkey,
-			      1, iod, &ioh);
+			      1, iod, &ioh, NULL, NULL, NULL);
 	if (rc != 0) {
 		if (verbose)
 			print_error("Failed to prepare ZC update: %d\n", rc);
@@ -487,7 +487,7 @@ io_test_obj_update(struct io_test_args *arg, int epoch, daos_key_t *dkey,
 
 	rc = bio_iod_post(vos_ioh2desc(ioh));
 end:
-	rc = vos_update_end(ioh, 0, dkey, rc);
+	rc = vos_update_end(ioh, 0, dkey, NULL, rc, 0, NULL);
 	if (rc != 0 && verbose)
 		print_error("Failed to submit ZC update: %d\n", rc);
 
@@ -2169,12 +2169,12 @@ io_query_key(void **state)
 	akey_value = MAX_INT_KEY;
 	dkey_value = MAX_INT_KEY;
 	rc = vos_obj_punch(arg->ctx.tc_co_hdl, oid, epoch++, 0, 0, &dkey, 1,
-			   &akey);
+			   &akey, NULL, 0, NULL);
 	assert_int_equal(rc, 0);
 
 	akey_value = 1;
 	rc = vos_obj_punch(arg->ctx.tc_co_hdl, oid, epoch++, 0, 0, &dkey, 1,
-			   &akey);
+			   &akey, NULL, 0, NULL);
 	assert_int_equal(rc, 0);
 
 	rc = vos_obj_query_key(arg->ctx.tc_co_hdl, oid, DAOS_GET_AKEY |
@@ -2190,7 +2190,7 @@ io_query_key(void **state)
 	/* Punch all of the akeys in last dkey */
 	for (akey_value = 2; akey_value < MAX_INT_KEY; akey_value++) {
 		rc = vos_obj_punch(arg->ctx.tc_co_hdl, oid, epoch++, 0, 0,
-				   &dkey, 1, &akey);
+				   &dkey, 1, &akey, NULL, 0, NULL);
 		assert_int_equal(rc, 0);
 	}
 	rc = vos_obj_query_key(arg->ctx.tc_co_hdl, oid, DAOS_GET_AKEY |
@@ -2218,12 +2218,12 @@ io_query_key(void **state)
 	/* Now punch the first and last dkey */
 	dkey_value = MAX_INT_KEY;
 	rc = vos_obj_punch(arg->ctx.tc_co_hdl, oid, epoch++, 0, 0, &dkey, 0,
-			   NULL);
+			   NULL, NULL, 0, NULL);
 	assert_int_equal(rc, 0);
 
 	dkey_value = 1;
 	rc = vos_obj_punch(arg->ctx.tc_co_hdl, oid, epoch++, 0, 0, &dkey, 0,
-			   NULL);
+			   NULL, NULL, 0, NULL);
 	assert_int_equal(rc, 0);
 
 	rc = vos_obj_query_key(arg->ctx.tc_co_hdl, oid, DAOS_GET_DKEY |
@@ -2238,7 +2238,7 @@ io_query_key(void **state)
 
 	/* Now punch the object */
 	rc = vos_obj_punch(arg->ctx.tc_co_hdl, oid, epoch++, 0, 0, NULL, 0,
-			   NULL);
+			   NULL, NULL, 0, NULL);
 	assert_int_equal(rc, 0);
 
 	rc = vos_obj_query_key(arg->ctx.tc_co_hdl, oid, DAOS_GET_DKEY |
